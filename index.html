@@ -1,0 +1,197 @@
+<!doctype html>
+<html>
+	<head>
+	<meta charset="utf-8"/>
+	<style>
+		html, body {
+		    height: 100%;
+		}
+		a {
+			color: #195190;
+			text-decoration: none;
+		}
+
+		a:hover {
+			text-decoration: underline;
+		}
+
+		a:active {
+			color: black;
+		}
+
+		a:visited {
+			color: #00AAA0;
+		}
+		.tabbar:after {
+			content: "";
+			display: table;
+			clear: both;
+		}
+		.tab {
+			float: left;
+			height: 20px;
+			width: 50px;
+			border-right-width: 1px;
+			border-right-style: solid;
+			border-right-color: black;
+			text-align: center;
+			vertical-align: middle;
+			display: table-cell;
+			padding-top: 10px;
+/*			margin: 0px;
+			padding: 0px;
+			border-left-width: 0px;*/
+		}
+		.filler {
+			float: left;
+			height: 20px;
+			width: auto;
+			background-color: blue;
+			padding-top: 10px;
+		}
+		.column {
+			float: left;
+			overflow-y: scroll;
+			height: 100vh;
+			margin: 0px;
+			padding: 0px;
+		}
+		#container {
+			width: 70.0%;
+		}
+		#sidebar {
+			width: 29.0%;
+			border-left-width: 1px;
+			border-left-color: black;
+			border-left-style: solid;
+		}
+		.row {
+			padding: 5px;
+			margin: 3px;
+		}
+		.table:after {
+			content: "";
+			display: table;
+			clear: both;
+		}
+		.label {
+			background-color: #CCC;
+		}
+		.section {
+			padding-left: 15px;
+		}
+	</style>
+	<script>
+		function openTab(event, tabName) {
+			let tabContents = document.querySelectorAll(".tabcontent");
+			for (let i = 0; i < tabContents.length; ++i) {
+				if (tabContents[i].id == tabName) {
+					tabContents[i].style.display = "block";
+				} else {
+					tabContents[i].style.display = "none";
+				}
+			}
+			let tabs = document.querySelectorAll(".tab");
+			for (let i = 0; i < tabs.length; ++i) {
+				tabs[i].style.backgroundColor = "grey";
+			}
+			event.currentTarget.style.backgroundColor = "white";
+		}
+
+		window.onload = function() {
+			openTab(
+				{ currentTarget : document.getElementById("tabP") },
+				"tabP"
+			);
+		};
+	</script>
+	</head>
+	<body style="margin:0px">
+		<div class="table">
+			<div class="column" id="container"></div>
+			<div class="column" id="sidebar">
+				<div class="tabbar">
+					<div class="tab" id = "tabP" onclick="openTab(event, 'tabP')">P</div>
+					<div class="tab" id = "tabQ" onclick="openTab(event, 'tabQ')">Q</div>
+					<div class="tab" id = "tabF" onclick="openTab(event, 'tabF')">f</div>
+					<div class="tab" id = "tabG" onclick="openTab(event, 'tabG')">g</div>
+					<div class="filler"></div>
+				</div>
+				<div class="tabcontent" id="tabP">
+					<div class="row" id="transitiveP">
+						<b>Transitive:</b> ∀x,y,z ∈ P, if x≤y and y≤z then x≤z
+					</div>
+					<div class="row" id="reflexiveP">
+						<b>Reflexive:</b> ∀x ∈ P, x≤x
+					</div>
+					<div class="row" id="antisymmetricP">
+						<b>Antisymmetric:</b> ∀x,y ∈ P, if x≤y and y≤x then x=y
+					</div>
+					<div class="row" id="preorderP">
+						<b>A preorder:</b> P is transitive and reflexive
+					</div>
+					<div class="row" id="partialorderP">
+						<b>A partial order:</b> P is a preorder and antisymmetric
+					</div>
+					<div class="row" id="totalorderP">
+						<b>A total order:</b> P is a partial order and ∀x,y ∈ P, x ≤ y or y ≤ x
+					</div>
+					<div class="row" id="hasmeetsP">
+						<b>Has meets:</b> ∀x,y ∈ P, ∃ x∧y ∈ P such that x∧y ≤ x, x∧y ≤ y, and ∀z ∈ P, if z ≤ x and z ≤ y, then z ≤ x∧y.
+					</div>
+					<div class="row" id="hasjoinsP">
+						<b>Has joins:</b> ∀x,y ∈ P, ∃ x∨y ∈ P such that x ≤ x∨y, y ≤ x∨y, and ∀z ∈ P, if x ≤ z and y ≤ z, then x∨y ≤ z.
+					</div>
+				</div>
+				<div class="tabcontent" id="tabQ">
+					<div class="row" id="transitiveQ">
+						<b>Transitive:</b> ∀x,y,z ∈ P, if x≤y and y≤z then x≤z
+					</div>
+					<div class="row" id="reflexiveQ">
+						<b>Reflexive:</b> ∀x ∈ P, x≤x
+					</div>
+					<div class="row" id="antisymmetricQ">
+						<b>Antisymmetric:</b> ∀x,y ∈ P, if x≤y and y≤x then x=y
+					</div>
+					<div class="row" id="preorderQ">
+						<b>A preorder:</b> P is transitive and reflexive
+					</div>
+					<div class="row" id="partialorderQ">
+						<b>A partial order:</b> P is a preorder and antisymmetric
+					</div>
+					<div class="row" id="totalorderQ">
+						<b>A total order:</b> P is a partial order and ∀x,y ∈ P, x ≤ y or y ≤ x
+					</div>
+					<div class="row" id="hasmeetsQ">
+						<b>Has meets:</b> ∀x,y ∈ P, ∃ x∧y ∈ P such that x∧y ≤ x, x∧y ≤ y, and ∀z ∈ P, if z ≤ x and z ≤ y, then z ≤ x∧y.
+					</div>
+					<div class="row" id="hasjoinsQ">
+						<b>Has joins:</b> ∀x,y ∈ P, ∃ x∨y ∈ P such that x ≤ x∨y, y ≤ x∨y, and ∀z ∈ P, if x ≤ z and y ≤ z, then x∨y ≤ z.
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="debug"></div>
+		<script src="build/Dots4/src/ts/ContentProvider.js"></script>
+		<script src="build/Dots4/src/ts/Constants.js"></script>
+		<script src="build/Dots4/src/ts/Layout.js"></script>
+		<script src="build/Dots4/src/ts/Game.js"></script>
+		<script src="build/Dots4/src/ts/ImagePaths.js"></script>
+		<script src="build/Dots4/src/ts/Components/Checkbox.js"></script>
+		<script src="build/Dots4/src/ts/Components/Component.js"></script>
+		<script src="build/Dots4/src/ts/Components/Select.js"></script>
+		<script src="build/Dots4/src/ts/Components/XYGraph.js"></script>
+		<script src="build/Dots4/src/ts/Components/Rectangle.js"></script>
+		<script src="build/Dots4/src/ts/Components/ImageLabel.js"></script>
+		<script src="build/Dots4/src/ts/Components/Button.js"></script>
+		<script src="build/Dots4/src/ts/Components/TextBox.js"></script>
+		<script src="build/Dots4/src/ts/Components/Container.js"></script>
+		<script src="build/Dots4/src/ts/Components/TextInput.js"></script>
+		<script src="build/Dots4/src/ts/Components/TextLabel.js"></script>
+		<script src="build/Dots4/src/ts/Components/Arrow.js"></script>
+		<script src="build/Dots4/src/ts/Components/Line.js"></script>
+		<script src="build/Dots4/src/ts/Components/TextButton.js"></script>
+		<script src="build/Dots4/src/ts/Components/Grid.js"></script>
+		<script src="build/src/ts/main.js"></script>
+	</body>
+</html>
