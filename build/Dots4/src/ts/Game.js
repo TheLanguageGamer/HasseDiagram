@@ -74,7 +74,7 @@ class Game {
             console.log("click");
             _this.clickRecursive(_this.components, e);
         });
-        window.addEventListener('mousedown', function (e) {
+        this.viewport.addEventListener('mousedown', function (e) {
             if (_this._stopped) {
                 return;
             }

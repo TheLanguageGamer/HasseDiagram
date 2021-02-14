@@ -15,6 +15,79 @@ enum NodeRelation {
 	Connected = 1,
 }
 
+class GraphFunction {
+
+	fromGraph : Graph;
+	toGraph : Graph;
+	fromSetBoxIndex : number;
+	toSetBoxIndex : number;
+
+	constructor(
+		fromGraph : Graph,
+		toGraph : Graph,
+		fromSetBoxIndex : number,
+		toSetBoxIndex : number) {
+
+		this.fromGraph = fromGraph;
+		this.toGraph = toGraph;
+		this.fromSetBoxIndex = fromSetBoxIndex;
+		this.toSetBoxIndex = toSetBoxIndex;
+	}
+
+	update(edges : Edge[], identifier : string) {
+
+		let maxLength = Math.max(
+			this.fromGraph.connections.length,
+			this.toGraph.connections.length
+		);
+		let isTotal = true;
+		let isSurjective = true;
+		let nonFunctionalities = 0;
+		let nonInjectivities = 0;
+		for (let i = 0; i < maxLength; ++i) {
+			let hasFromValue = false;
+			let hasToValue = false;
+			for (let j = 0; j < edges.length; ++j) {
+				let edge = edges[j];
+				if (edge.enabled
+					&& edge.fromSetBoxIndex == this.fromSetBoxIndex
+					&& edge.toSetBoxIndex == this.toSetBoxIndex) {
+					
+					if (edge.fromIndex == i) {
+						if (hasFromValue) {
+							nonFunctionalities++;
+						}
+						hasFromValue = true;
+					}
+					if (edge.toIndex == i) {
+						if (hasToValue) {
+							nonInjectivities++;
+						}
+						hasToValue = true;
+					}
+				}
+			}
+			if (i < this.fromGraph.connections.length
+				&& this.fromGraph.connections[i][i] != NodeRelation.Disabled) {
+				isTotal = isTotal && hasFromValue;
+			}
+			if (i < this.toGraph.connections.length
+				&& this.toGraph.connections[i][i] != NodeRelation.Disabled) {
+				isSurjective = isSurjective && hasToValue;
+			}
+		}
+
+		let isFunctional = nonFunctionalities == 0;
+		let isInjective = nonInjectivities == 0;
+
+		enableProperty("functional" + identifier, isFunctional);
+		enableProperty("total" + identifier, isTotal);
+		enableProperty("injective" + identifier, isInjective);
+		enableProperty("surjective" + identifier, isSurjective);
+
+	}
+}
+
 class Graph {
 
 	connections : NodeRelation[][] = [];
@@ -211,6 +284,79 @@ interface Edge {
 	from : Pos,
 	to : Pos,
 	enabled : boolean,
+	functional : boolean,
+}
+
+function renderEdge(
+	ctx : CanvasRenderingContext2D,
+	cp : ContentProvider,
+	timeMS : DOMHighResTimeStamp,
+	edge : Edge,
+	highlighted : boolean) {
+
+	let margin = 8;
+	let headlen = highlighted ? 12 : 6;;
+	let angleDelta = Math.PI/6.0;
+	let angle = Math.atan2(
+		edge.to.y - edge.from.y,
+		edge.to.x - edge.from.x
+	);
+	let length = calculateDistance(edge.from, edge.to);
+
+	if (length < 8) {
+		return;
+	}
+
+	let to = {
+		x : edge.to.x - margin*Math.cos(angle),
+		y : edge.to.y - margin*Math.sin(angle),
+	};
+	let from = {
+		x : edge.from.x + margin*Math.cos(angle),
+		y : edge.from.y + margin*Math.sin(angle),
+	};
+	let midPoint = {
+		x : from.x + (to.x-from.x)/2.0,
+		y : from.y + (to.y-from.y)/2.0,
+	};
+
+	if (edge.functional) {
+		ctx.setLineDash([10, 5]);
+	}
+	ctx.strokeStyle = Constants.Colors.Black;
+	ctx.fillStyle = Constants.Colors.Black;
+	ctx.lineWidth = highlighted ? 4 : 2;
+	ctx.beginPath();
+	ctx.moveTo(
+		from.x,
+		from.y
+	);
+	ctx.lineTo(
+		to.x - (headlen/2)*Math.cos(angle),
+		to.y - (headlen/2)*Math.sin(angle)
+	);
+	// ctx.quadraticCurveTo(
+	// 	midPoint.x + (length/4)*Math.cos(angle+Math.PI/2),
+	// 	midPoint.y + (length/4)*Math.sin(angle+Math.PI/2),
+	// 	to.x - (headlen/2)*Math.cos(angle),
+	// 	to.y - (headlen/2)*Math.sin(angle)
+	// );
+	ctx.stroke();
+
+	ctx.beginPath();
+	ctx.moveTo(to.x, to.y);
+	ctx.lineTo(
+		to.x - headlen*Math.cos(angle-angleDelta),
+		to.y - headlen*Math.sin(angle-angleDelta)
+	);
+	ctx.lineTo(
+		to.x - headlen*Math.cos(angle+angleDelta),
+		to.y - headlen*Math.sin(angle+angleDelta)
+	);
+	ctx.lineTo(to.x, to.y);
+	ctx.fill();
+	ctx.setLineDash([]);
+	//ctx.stroke();
 }
 
 class FunctionManager implements Component {
@@ -218,11 +364,21 @@ class FunctionManager implements Component {
 	layout : Layout;
 	children : SetBox[];
 
+	edges : Edge[] = [];
+	drawingEdgeIndex : number = -1;
+
 	lastMouseDownTimeStamp : DOMHighResTimeStamp = performance.now();
 
-	constructor(layout : Layout, children : SetBox[]) {
+	onChange : (edges : Edge[]) => void;
+
+	constructor(
+		layout : Layout,
+		children : SetBox[],
+		onChange : (edges : Edge[]) => void) {
+
 		this.layout = layout;
 		this.children = children;
+		this.onChange = onChange;
 	}
 
 	render(
@@ -230,6 +386,61 @@ class FunctionManager implements Component {
 		cp : ContentProvider,
 		timeMS : DOMHighResTimeStamp) {
 
+		for (let i = 0; i < this.edges.length; ++i) {
+			let edge = this.edges[i];
+			if (edge.enabled) {
+				renderEdge(
+					ctx,
+					cp,
+					timeMS,
+					edge,
+					i == this.drawingEdgeIndex
+				);
+			}
+		}
+	}
+
+	addEdge(
+		point : Pos,
+		from : SetElement,
+		fromIndex : number,
+		fromSetBoxIndex : number) {
+
+		let ret = -1;
+		let filled = false;
+		// for (let i = 0; i < this.edges.length; ++i) {
+		// 	let edge = this.edges[i];
+		// 	if (edge.enabled) {
+		// 		continue;
+		// 	}
+		// 	filled = true;
+		// 	ret = i;
+		// 	edge.enabled = true;
+		// 	edge.from.x = from.x;
+		// 	edge.from.y = from.y;
+		// 	edge.to.x = point.x;
+		// 	edge.to.y = point.y;
+		// 	edge.fromIndex = fromIndex;
+		// 	edge.toIndex = -1;
+		// 	break;
+		// }
+		if (!filled) {
+			this.edges.push({
+				fromSetBoxIndex : fromSetBoxIndex,
+				toSetBoxIndex : -1,
+				fromIndex : fromIndex,
+				toIndex : -1,
+				from : {
+					x : from.x,
+					y : from.y,
+				},
+				to : point,
+				enabled : true,
+				functional : false,
+			});
+			ret = this.edges.length-1;
+		}
+		return ret;
 	}
 
 	onMouseDown(e : MouseEvent) {
@@ -264,10 +475,11 @@ class FunctionManager implements Component {
 				} else {
 					setbox.selectedElementIndex = elementIndex;
 					setbox.selectedEdgeIndex = -1;
-					setbox.drawingEdgeIndex = setbox.addEdge(
+					this.drawingEdgeIndex = this.addEdge(
 						point,
 						setbox.elements[elementIndex],
-						elementIndex
+						elementIndex,
+						i
 					);
 				}
 			} else {
@@ -277,6 +489,81 @@ class FunctionManager implements Component {
 			}
 			this.lastMouseDownTimeStamp = performance.now();
 			return true;
+		}
+		return false;
+	}
+
+	onMouseMove(e : MouseEvent) {
+
+		if (this.drawingEdgeIndex > -1) {
+
+			let drawingEdge = this.edges[this.drawingEdgeIndex];
+			drawingEdge.to.x = e.offsetX;
+			drawingEdge.to.y = e.offsetY;
+
+			for (let i = 0; i < this.children.length; ++i) {
+				let setbox = this.children[i];
+
+				if (drawingEdge.fromSetBoxIndex == i) {
+					drawingEdge.functional =
+						!setbox.layout.containsPosition(e.offsetX, e.offsetY);
+				}
+
+				let index = setbox.selectElement(drawingEdge.to);
+				if (index > -1
+					&& !(drawingEdge.fromIndex == index
+						&& drawingEdge.fromSetBoxIndex == i)) {
+					setbox.secondaryIndex = index;
+					return true;
+				} else {
+					setbox.secondaryIndex = -1;
+				}
+			}
+		}
+		return false;
+	}
+
+	onMouseUp(e : MouseEvent) {
+
+		if (this.drawingEdgeIndex > -1) {
+
+			let drawingEdge = this.edges.pop()!;
+			this.drawingEdgeIndex = -1;
+			let length = calculateDistance(drawingEdge.from, drawingEdge.to);
+
+			let edgeWasUsed = false;
+			for (let i = 0; i < this.children.length; ++i) {
+				let setbox = this.children[i];
+				setbox.selectedElementIndex = -1;
+
+				if (setbox.secondaryIndex > -1) {
+
+					drawingEdge.to.x = setbox.elements[setbox.secondaryIndex].x;
+					drawingEdge.to.y = setbox.elements[setbox.secondaryIndex].y;
+					drawingEdge.toIndex = setbox.secondaryIndex;
+					drawingEdge.toSetBoxIndex = i;
+					setbox.secondaryIndex = -1;
+					edgeWasUsed = true;
+					
+					if (drawingEdge.fromSetBoxIndex == i) {
+						setbox.edges.push(drawingEdge);
+						setbox.onChange(setbox.elements, setbox.edges);
+					} else {
+						this.edges.push(drawingEdge);
+						this.onChange(this.edges);
+					}
+				}
+			}
+			if (!edgeWasUsed) {
+				drawingEdge.enabled = false;
+			}
+			return true;
+
+		} else {
+			for (let i = 0; i < this.children.length; ++i) {
+				let setbox = this.children[i];
+				setbox.selectedElementIndex = -1;
+			}
 		}
 		return false;
 	}
@@ -295,7 +582,6 @@ class SetBox implements Component {
 	secondaryIndex : number = -1;
 
 	edges : Edge[] = [];
-	drawingEdgeIndex : number = -1;
 	selectedEdgeIndex : number = -1;
 
 	// lastClick : DOMHighResTimeStamp = performance.now();
@@ -320,60 +606,6 @@ class SetBox implements Component {
 		textBox.setFontSize(18);
 		this.children = [];
 		this.children.push(textBox);
-	}
-
-	renderEdge(
-		ctx : CanvasRenderingContext2D,
-		cp : ContentProvider,
-		timeMS : DOMHighResTimeStamp,
-		edge : Edge,
-		highlighted : boolean) {
-
-		let margin = 8;
-		let headlen = highlighted ? 12 : 6;;
-		let angleDelta = Math.PI/6.0;
-		let angle = Math.atan2(
-			edge.to.y - edge.from.y,
-			edge.to.x - edge.from.x
-		);
-		let length = calculateDistance(edge.from, edge.to);
-
-		if (length < 8) {
-			return;
-		}
-
-		let to = {
-			x : edge.to.x - margin*Math.cos(angle),
-			y : edge.to.y - margin*Math.sin(angle),
-		};
-
-		ctx.strokeStyle = Constants.Colors.Black;
-		ctx.fillStyle = Constants.Colors.Black;
-		ctx.lineWidth = highlighted ? 4 : 2;
-		ctx.beginPath();
-		ctx.moveTo(
-			edge.from.x + margin*Math.cos(angle),
-			edge.from.y + margin*Math.sin(angle)
-		);
-		ctx.lineTo(
-			to.x - (headlen/2)*Math.cos(angle),
-			to.y - (headlen/2)*Math.sin(angle)
-		);
-		ctx.stroke();
-
-		ctx.beginPath();
-		ctx.moveTo(to.x, to.y);
-		ctx.lineTo(
-			to.x - headlen*Math.cos(angle-angleDelta),
-			to.y - headlen*Math.sin(angle-angleDelta)
-		);
-		ctx.lineTo(
-			to.x - headlen*Math.cos(angle+angleDelta),
-			to.y - headlen*Math.sin(angle+angleDelta)
-		);
-		ctx.lineTo(to.x, to.y);
-		ctx.fill();
-		//ctx.stroke();
 	}
 
 	render(
@@ -421,22 +653,15 @@ class SetBox implements Component {
 			}
 		}
 
-		// let drawingEdge = this.drawingEdgeIndex > -1
-		// 	? this.edges[this.drawingEdgeIndex]
-		// 	: null;
-		// if (drawingEdge
-		// 	&& calculateDistance(drawingEdge.from, drawingEdge.to) > 16) {
-		// 	this.renderEdge(ctx, cp, timeMS, drawingEdge, true);
-		// }
 		for (let i = 0; i < this.edges.length; ++i) {
 			let edge = this.edges[i];
 			if (edge.enabled) {
-				this.renderEdge(
+				renderEdge(
 					ctx,
 					cp,
 					timeMS,
 					edge,
-					i == this.drawingEdgeIndex || i == this.selectedEdgeIndex
+					i == this.selectedEdgeIndex
 				);
 			}
 		}
@@ -500,43 +725,6 @@ class SetBox implements Component {
 		return ret;
 	}
 
-	addEdge(point : Pos, from : SetElement, fromIndex : number) {
-		let ret = -1;
-		let filled = false;
-		for (let i = 0; i < this.edges.length; ++i) {
-			let edge = this.edges[i];
-			if (edge.enabled) {
-				continue;
-			}
-			filled = true;
-			ret = i;
-			edge.enabled = true;
-			edge.from.x = from.x;
-			edge.from.y = from.y;
-			edge.to.x = point.x;
-			edge.to.y = point.y;
-			edge.fromIndex = fromIndex;
-			edge.toIndex = -1;
-			break;
-		}
-		if (!filled) {
-			this.edges.push({
-				fromSetBoxIndex : -1,
-				toSetBoxIndex : -1,
-				fromIndex : fromIndex,
-				toIndex : -1,
-				from : {
-					x : from.x,
-					y : from.y,
-				},
-				to : point,
-				enabled : true,
-			});
-			ret = this.edges.length-1;
-		}
-		return ret;
-	}
-
 	deleteElement(index : number) {
 		console.assert(index >= 0 && index < this.elements.length);
 
@@ -550,112 +738,6 @@ class SetBox implements Component {
 				this.edges[i].toIndex = -1;
 			}
 		}
-	}
-
-	// isDoubleClick(point : Pos) {
-	// 	return performance.now()-this.lastClick < 500;
-	// }
-
-	// onClick(e : MouseEvent) {
-	// 	let point = {
-	// 		x : e.offsetX,
-	// 		y : e.offsetY,
-	// 	};
-
-	// 	if (this.isDoubleClick(point)) {
-	// 		if (this.selectedElementIndex > -1) {
-	// 			this.deleteElement(this.selectedElementIndex);
-	// 			this.onChange(this.elements, this.edges);
-	// 			this.selectedElementIndex = -1;
-	// 		} else if (this.selectedEdgeIndex > -1) {
-	// 			this.edges[this.selectedEdgeIndex].enabled = false;
-	// 			this.onChange(this.elements, this.edges);
-	// 			this.selectedEdgeIndex = -1;
-	// 		}
-	// 	}
-	// 	this.lastClick = performance.now();
-	// 	return InputResponse.Sunk;
-	// }
-
-	//onMouseDown(e : MouseEvent) {
-		// let point = {
-		// 	x : e.offsetX,
-		// 	y : e.offsetY,
-		// };
-
-		// let elementIndex = this.selectElement(point);
-		// let edgeIndex = this.selectEdge(point);
-		// if (edgeIndex > -1) {
-		// 	this.selectedEdgeIndex = edgeIndex;
-		// 	this.selectedElementIndex = -1;
-		// } else if (elementIndex > -1) {
-		// 	this.selectedElementIndex = elementIndex;
-		// 	this.selectedEdgeIndex = -1;
-		// 	this.drawingEdgeIndex = this.addEdge(
-		// 		point,
-		// 		this.elements[elementIndex],
-		// 		elementIndex
-		// 	);
-		// 	// this.drawingEdge = {
-		// 	// 	fromIndex : elementIndex,
-		// 	// 	toIndex : -1,
-		// 	// 	from : {
-		// 	// 		x : this.elements[elementIndex].x,
-		// 	// 		y : this.elements[elementIndex].y,
-		// 	// 	},
-		// 	// 	to : point,
-		// 	// 	enabled : true,
-		// 	// };
-		// 	return true;
-		// } else {
-			// this.selectedElementIndex = this.addElement(point);
-			// this.selectedEdgeIndex = -1;
-			// this.onChange(this.elements, this.edges);
-		// }
-	// 	return false;
-	// }
-
-	onMouseMove(e : MouseEvent) {
-		if (this.drawingEdgeIndex > -1) {
-
-			let drawingEdge = this.edges[this.drawingEdgeIndex];
-			drawingEdge.to.x = e.offsetX;
-			drawingEdge.to.y = e.offsetY;
-
-			let index = this.selectElement(drawingEdge.to);
-			if (index > -1 && index != drawingEdge.fromIndex) {
-				this.secondaryIndex = index;
-			} else {
-				this.secondaryIndex = -1;
-			}
-			return true;
-		}
-		return false;
-	}
-
-	onMouseUp(e : MouseEvent) {
-		this.selectedElementIndex = -1;
-		if (this.drawingEdgeIndex > -1) {
-
-			let drawingEdge = this.edges[this.drawingEdgeIndex];
-			let length = calculateDistance(drawingEdge.from, drawingEdge.to);
-
-			if (this.secondaryIndex > -1) {
-				drawingEdge.to.x = this.elements[this.secondaryIndex].x;
-				drawingEdge.to.y = this.elements[this.secondaryIndex].y;
-				drawingEdge.toIndex = this.secondaryIndex;
-				this.onChange(this.elements, this.edges);
-			} else {
-				drawingEdge.enabled = false;
-			}
-			this.drawingEdgeIndex = -1;
-			this.secondaryIndex = -1;
-			// if (length > 8) {
-			// 	this.selectedElementIndex = -1;
-			// }
-			return true;
-		}
-		return false;
 	}
 }
 
@@ -691,12 +773,18 @@ class Main {
 			}
 		);
 
+		let f = new GraphFunction(graphP, graphQ, 0, 1);
+		let g = new GraphFunction(graphQ, graphP, 1, 0);
 		let functionManager = new FunctionManager(
 			new Layout(
 				0, 0, 0, 0,
 				1, 1, 0, 0
 			),
-			[setBoxP, setBoxQ]
+			[setBoxP, setBoxQ],
+			function(edges : Edge[]) {
+				f.update(edges, "F");
+				g.update(edges, "G");
+			}
 		);
 
 		// let textLayout3 = new Layout(

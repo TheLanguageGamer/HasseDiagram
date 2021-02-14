@@ -30,7 +30,7 @@
 		.tab {
 			float: left;
 			height: 20px;
-			width: 50px;
+			width: 35px;
 			border-right-width: 1px;
 			border-right-style: solid;
 			border-right-color: black;
@@ -38,6 +38,7 @@
 			vertical-align: middle;
 			display: table-cell;
 			padding-top: 10px;
+			padding-bottom: 5px;
 /*			margin: 0px;
 			padding: 0px;
 			border-left-width: 0px;*/
@@ -113,9 +114,23 @@
 				<div class="tabbar">
 					<div class="tab" id = "tabP" onclick="openTab(event, 'tabP')">P</div>
 					<div class="tab" id = "tabQ" onclick="openTab(event, 'tabQ')">Q</div>
-					<div class="tab" id = "tabF" onclick="openTab(event, 'tabF')">f</div>
-					<div class="tab" id = "tabG" onclick="openTab(event, 'tabG')">g</div>
+					<div class="tab" id = "tabF" style="width:70px" onclick="openTab(event, 'tabF')">f ⊆ P×Q</div>
+					<div class="tab" id = "tabG" style="width:70px" onclick="openTab(event, 'tabG')">g ⊆ Q×P</div>
 					<div class="filler"></div>
+				</div>
+				<div class="tabcontent" id="tabF">
+					<div class="row" id="functionalF">
+						<b>Functional:</b> ∀x ∈ P, there exists at most one element of Q, written f(x), such that (x, f(x)) ∈ f
+					</div>
+					<div class="row" id="totalF">
+						<b>Total function:</b> ∀x ∈ P, f(x) is uniquely defined such that (x, f(x)) ∈ f
+					</div>
+					<div class="row" id="injectiveF">
+						<b>Injective:</b> ∀x,y ∈ P, if f(x) = f(y), then x = y
+					</div>
+					<div class="row" id="surjectiveF">
+						<b>Surjective:</b> ∀y ∈ Q, ∃x ∈ P such that f(x) = y
+					</div>
 				</div>
 				<div class="tabcontent" id="tabP">
 					<div class="row" id="transitiveP">
